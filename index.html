@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.counties {
+  fill: none;
+}
+
+.states {
+  fill: none;
+  stroke: #fff;
+  stroke-linejoin: round;
+}
+
+</style>
+<svg width="960" height="600"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://d3js.org/topojson.v2.min.js"></script>
+<script>
+var w = 500;
+      var h = 300;
+
+//Creating svg
+var svg = d3.select("svg"),
+    width = +svg.attr("width"),
+    height = +svg.attr("height");
+//Define map projection
+      var projection = d3.geoMercator()
+                   .translate([0, 0])
+                   .scale(1);
+      //Define path generator
+      var path = d3.geoPath()
+               .projection(projection);
+var pickup = d3.map();
+
+
+var x = d3.scaleLinear()
+    .domain([1, 10])
+    .rangeRound([600, 860]);
+
+//Color scheme selection
+var color = d3.scaleThreshold()
+    .domain(d3.range(2, 10))
+    //.range(d3.schemeRdYlGn[9]);
+    .range(d3.schemePuRd[9]);
+
+
+var g = svg.append("g")
+    .attr("class", "key")
+    .attr("transform", "translate(0,40)");
+
+g.selectAll("rect")
+  .data(color.range().map(function(d) {
+      d = color.invertExtent(d);
+      if (d[0] == null) d[0] = x.domain()[0];
+      if (d[1] == null) d[1] = x.domain()[1];
+      return d;
+    }))
+  .enter().append("rect")
+    .attr("height", 8)
+    .attr("x", function(d) { return x(d[0]); })
+    .attr("width", function(d) { return x(d[1]) - x(d[0]); })
+    .attr("fill", function(d) { return color(d[0]); });
+
+//map key
+g.append("text")
+    .attr("class", "caption")
+    .attr("x", x.range()[0])
+    .attr("y", -6)
+    .attr("fill", "#000")
+    .attr("text-anchor", "start")
+    .attr("font-weight", "bold")
+    .text("Pickup Numbers(x100)");
+
+//scale
+g.call(d3.axisBottom(x)
+    .tickSize(13)
+    //percentage change
+    //.tickFormat(function(x, i) { return i ? x-4 : x-4 ; })
+    //absolute change
+    //.tickFormat(function(x, i) { return i ? x-5 : x-5 ; })
+    //numbers
+    .tickFormat(function(x, i) { return i ? (x-1.5) : (x-1.5) ; })
+    //.tickValues(color.domain()))
+    .tickValues(d3.range(2,10)))
+  .select(".domain")
+    .remove();
+
+d3.queue()
+    //geojson for nyc taxi zones
+    .defer(d3.json, "geo.geojson")
+    //tsv file for the data to be used for coloring the map
+    .defer(d3.tsv, "01-20_19-20.tsv", function(d) { pickup.set(d.id, +d.rate); })
+    .await(ready);
+
+function ready(error, us) {
+
+  // Calculate bounding box transforms for entire collection
+                var b = path.bounds( us ),
+                s = .95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h),
+                t = [(w - s * (b[1][0] + b[0][0])) / 2, (h - s * (b[1][1] + b[0][1])) / 2];
+
+                // Update the projection    
+                projection
+                  .scale(s)
+                  .translate(t);
+
+  svg.append("g")
+    .selectAll("path")
+    .data(us.features)
+    //scaling the data to the scale of the map
+    .enter().append("path")
+    //percentage change
+    //.attr("fill", function(d) { return color(d.rate = pickup.get(d.id)+4); })
+    //absolute change
+    .attr("fill", function(d) { return color(d.rate = (pickup.get(d.id)/100)+1.5); })
+      .attr("d", path)
+      //.style("fill", function(d){return "steelblue";})
+    .append("title")
+    //percentage change
+      //.text(function(d) { return d.rate-4 ; });
+    //absolute change
+      .text(function(d) { return (d.rate-1.5)*100 ; });
+
+}
+
+</script>
